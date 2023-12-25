@@ -1,9 +1,17 @@
+__author__ = "Zahra Honarvar, Milad Nooraei"
+__email__ = "Zhpica@gmail.com, miladnooraiy0@gmail.com"
+__mentor__ = "Diba Aminshahidi"
+__organization__ = "Quera"
+__date__ = "2023-05-24"
 
 import re
 import requests
 import pandas as pd
 from bs4 import BeautifulSoup
 import numpy as np
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+import time
 
 
 def data_of_players(url, players_datas):
@@ -156,30 +164,6 @@ def data_of_players(url, players_datas):
     return res
 
 
-def players_transfer_table(url):
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36",
-               "accept-language": "en-US,en;q=0.9"}
-    page = requests.get(url, headers=headers)
-    soup = BeautifulSoup(page.content, "html.parser")
-    print(page)
-    # Getting Transfer Data
-    try:
-        transfer_table = soup.find(
-            "div", {"data-viewport": "Transferhistorie"})
-        rows = transfer_table.find_all(
-            "div", class_="grid tm-player-transfer-history-grid")
-        transfer_table_list = []
-        for i in rows:
-            clean_text = i.text.strip()
-            lines = clean_text.split("\n")
-            lines = [line.strip() for line in lines if line.strip()]
-            if ("2017" in lines[1]) or ("2018" in lines[1]) or ("2019" in lines[1]) or ("2020" in lines[1]) or ("2021" in lines[1]):
-                transfer_table_list += [lines]
-        return transfer_table_list
-
-    except AttributeError:
-        pass
-
 
 def player_stats_table(url, name):
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36",
@@ -236,48 +220,28 @@ def player_stats_table(url, name):
     return row
 
 
-links = 'https://www.transfermarkt.com' + pd.read_csv("players_link.csv")
+links = 'https://www.transfermarkt.com' + \
+    pd.read_csv("club_data/players_link.csv")
 
 cols = ["player_id", "shirt_number", "given_name", "full_name", "date_of_birth",
         "citizenship", "place_of_birth", "caps", "goals", "other_positions",
         "outfitter", "contract_expires", "agent", "foot", "contract_Joined",
         "height", "current_club", "date_of_last_contract", "players_link"]
-players_datas = pd.DataFrame(columns=cols).astype(str)
 
-cols = ["player_id", "season", "date", "left", "joined", "mv", "fee"]
-transfer_table = pd.DataFrame(columns=cols).astype(str)
+stat_column = ['id', 'name', 'appearances', 'goals', 'asists', 'yellow_cards', 'second_yellow_cards', 'red_cards', 'minutes_played', 'goals_conceded', 'clean_sheets']
+players_data = pd.DataFrame(columns=cols).astype(str)
+players_stats = pd.DataFrame(columns= stat_column).astype(str)
 
-
+count = 0
 for i in range(len(links)):
     # ---players_datas
-    res1 = data_of_players(links.loc[i, "0"], players_datas)
+    single_player_data = data_of_players(links.loc[i, "0"], players_data)
     # players_datas = players_datas.append(res1, ignore_index = True) # for pandas==1.3.4
-    players_datas = pd.concat(
-        [players_datas, pd.DataFrame([res1])], ignore_index=True)
-
-    # ---players_transfers
-    res2 = {}
-    # Getting Players ID
-    pattern = r"/(\d+)$"
-    match = re.search(pattern, links.loc[i, "0"])
-    player_id = match.group(1)
-    table_list = players_transfer_table(links.loc[i, "0"])
-
-    for j in table_list:
-        if len(j) == 6:
-            res2["player_id"] = player_id
-            res2["season"] = j[0]
-            res2["date"] = j[1]
-            res2["left"] = j[2]
-            res2["joined"] = j[3]
-            res2["mv"] = j[4]
-            res2["fee"] = j[5]
-            # transfer_table = transfer_table.append(res2, ignore_index = True) # for pandas==1.3.4
-            transfer_table = pd.concat(
-                [transfer_table, pd.DataFrame([res2])], ignore_index=True)
-
+    players_data = pd.concat(
+        [players_data, pd.DataFrame([single_player_data])], ignore_index=True)
+    
+    
     # ---players_stats
-    player_stats = []
     p = links.iloc[i, 0]
     id = p.split('spieler/')[-1]
 
@@ -285,13 +249,18 @@ for i in range(len(links)):
     name = name.replace(' ', '-')
     performance_link = f"https://www.transfermarkt.com/{name}/leistungsdaten/spieler/{id}/plus/0?saison=2021"
 
-    res3 = player_stats_table(performance_link, name)
-    player_stats.append(res3)
+    single_player_stat = player_stats_table(performance_link, name)
+    players_stats = pd.concat(
+        [players_stats, pd.DataFrame([single_player_stat])], ignore_index=True)
+    
 
-    print(f'player{i} Done.')
+    print(f'player{i}: Crawled.')
 
 
-pd.DataFrame(players_datas).to_csv("data/players_datas.csv", index=False)
-pd.DataFrame(transfer_table).drop_duplicates().to_csv(
-    "data/players_transfers.csv", index=False)
-pd.DataFrame(player_stats).to_csv('data/players_stats.csv', index=False)
+
+pd.DataFrame(players_data).to_csv(
+    "player_data/players_datas.csv", index=False)
+# pd.DataFrame(transfer_table).drop_duplicates().to_csv(
+#     "data/players_transfers.csv", index=False)
+pd.DataFrame(players_stats).to_csv(
+    'player_data/players_stats.csv', index=False)
