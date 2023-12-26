@@ -66,7 +66,7 @@ def convert_and_drop_na(players_data_df, players_stats_df, club_players_df, club
 
     ### Drop giá trị NaN
     # 1. players_data.csv
-    players_data_df = players_data_df.drop(["shirt_number", "full_name", "goals", "date_of_last_contract", "outfitter",
+    players_data_df = players_data_df.drop(["shirt_number", "full_name", "given_name", "goals", "date_of_last_contract", "outfitter",
                                             "place_of_birth", "caps", "other_positions", "contract_expires", "agent", "contract_Joined"], 
                                             axis= 1)
     mode_foot = players_data_df["foot"].mode()[0]
@@ -114,17 +114,19 @@ def run():
     ### Đổi đơn vị và drop NaN
     players_data_df, players_stats_df, club_players_df, club_df, league_goals_df = convert_and_drop_na(players_data_df, players_stats_df, club_players_df, club_df, league_goals_df)
     
-    # Perform an inner join
-    merged_data = pandas.merge(players_data_df, players_stats_df, left_on='player_id', right_on= 'id', how= 'inner')
     # Apply the modified function to the minutes_played column
-    merged_data['minutes_played'] = merged_data['minutes_played'].apply(clean_minutes_played)
+    players_stats_df['minutes_played'] = players_stats_df['minutes_played'].apply(clean_minutes_played)
     # Extract age, remove birthday
     # Extract age from the date_of_birth column
-    merged_data['age'] = merged_data['date_of_birth'].str.extract(r'\((\d+)\)').astype(float)
+    players_data_df['age'] = players_data_df['date_of_birth'].str.extract(r'\((\d+)\)').astype(float)
     # Then drop date_of_birth column
-    merged_data.drop(columns= ["date_of_birth"], inplace= True)
+    players_data_df.drop(columns= ["date_of_birth"], inplace= True)
     # drop tiếp các cột
-    merged_data.drop(columns= ['given_name', "name", "players_link", "id"], inplace= True)
+
+    # Perform an inner join
+    merged_data = pandas.merge(players_data_df, players_stats_df, left_on='player_id', right_on= 'id', how= 'inner')    
+    # drop tiếp các cột
+    merged_data.drop(columns= ["name", "players_link", "id"], inplace= True)
 
     club_shortlist = club_df[["Club", "League", "avgAge", "avgMarketValue", "totalMarketValue", "Club_income", "Rank"]]
     columns_list = ["Club", "Country", "League", "avgAge", "avgMarketValue", "totalMarketValue", "Club_income", "Rank"]
