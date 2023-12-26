@@ -1,4 +1,4 @@
-import numpy
+import numpy, math
 import pandas
 
 config = {
@@ -57,7 +57,7 @@ def convert_negative_postive_money_str_to_float(value):
     except:
         return numpy.nan
 
-def convert_and_drop_na(players_data_df, players_stats_df, club_players_df, club_df, league_goals_df):
+def convert_and_drop_na(players_data_df: pandas.DataFrame, players_stats_df: pandas.DataFrame, club_players_df: pandas.DataFrame, club_df: pandas.DataFrame, league_goals_df: pandas.DataFrame):
     ### Convert từ string euro -> float
     club_players_df["Player_MarketValue"] = club_players_df["Player_MarketValue"].map(convert_money_str_to_float)
     for field in ["avgMarketValue", "totalMarketValue", "Club_income", "Club_expenditure"]:
@@ -66,19 +66,21 @@ def convert_and_drop_na(players_data_df, players_stats_df, club_players_df, club
 
     ### Drop giá trị NaN
     # 1. players_data.csv
-    players_data_df = players_data_df.drop(["shirt_number", "full_name", "given_name", "goals", "date_of_last_contract", "outfitter",
+    players_data_df = players_data_df.drop(["shirt_number", "full_name", "given_name", "date_of_last_contract", "outfitter",
                                             "place_of_birth", "caps", "other_positions", "contract_expires", "agent", "contract_Joined"], 
                                             axis= 1)
     mode_foot = players_data_df["foot"].mode()[0]
     mean_height = players_data_df["height"].mean()
     players_data_df = players_data_df.fillna(value={"foot": mode_foot, "height": mean_height})
+    mean_goals = players_data_df["goals"].mean()
+    players_data_df = players_data_df.fillna(value= {"goals": math.ceil(mean_goals)})
     players_data_df.info()
 
     # 2. players_stats.csv
     players_stats_df = players_stats_df.fillna(value={
         "appearances": 0,
         "goals": 0,
-        "asist": 0,
+        "asists": 0,
         "yellow_cards": 0,
         "second_yellow_cards": 0,
         "red_cards": 0,
@@ -110,10 +112,14 @@ def run():
     club_players_df = pandas.read_csv(config["club_players.csv"])
     club_df = pandas.read_csv(config["club.csv"])
     league_goals_df = pandas.read_csv(config["league_goals.csv"]) 
-
+   
     ### Đổi đơn vị và drop NaN
     players_data_df, players_stats_df, club_players_df, club_df, league_goals_df = convert_and_drop_na(players_data_df, players_stats_df, club_players_df, club_df, league_goals_df)
     
+    ### Đổi tên 2 cột goals cho players_data và players_stats
+    players_data_df = players_data_df.rename(columns= {"goals": "cumulative_goals"})
+    players_stats_df = players_stats_df.rename(columns= {"goals": "2021_goals"}) 
+
     # Apply the modified function to the minutes_played column
     players_stats_df['minutes_played'] = players_stats_df['minutes_played'].apply(clean_minutes_played)
     # Extract age, remove birthday
@@ -121,7 +127,6 @@ def run():
     players_data_df['age'] = players_data_df['date_of_birth'].str.extract(r'\((\d+)\)').astype(float)
     # Then drop date_of_birth column
     players_data_df.drop(columns= ["date_of_birth"], inplace= True)
-    # drop tiếp các cột
 
     # Perform an inner join
     merged_data = pandas.merge(players_data_df, players_stats_df, left_on='player_id', right_on= 'id', how= 'inner')    
@@ -142,4 +147,4 @@ def run():
 
     return players_data_df, players_stats_df, club_players_df, club_df, league_goals_df, full_data
 
-run()
+# run()
